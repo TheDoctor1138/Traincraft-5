@@ -3,20 +3,17 @@ package train.client.render;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import fexcraft.tmt.slim.Tessellator;
-import net.minecraft.block.BlockRailBase;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.entity.Render;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Vec3;
 import org.lwjgl.opengl.GL11;
 import train.common.Traincraft;
 import train.common.api.AbstractTrains;
 import train.common.api.EntityRollingStock;
 import train.common.api.Locomotive;
 import train.common.api.TrainRenderRecord;
-import train.common.core.util.TraincraftUtil;
 import train.common.entity.rollingStockOld.EntityTracksBuilder;
 import train.common.overlaytexture.OverlayTextureManager;
 
@@ -95,35 +92,10 @@ public class RenderRollingStock extends Render {
             GL11.glTranslatef(0f, 0.15f, 0f);
         }
         if (cart.bogieFront != null) {// || cart.bogieUtility[0]!=null){
-            //GL11.glRotatef((float)(90-cart.rotationYawClientReal), 0.0F, 1.0F, 0.0F);
-            if (cart.oldClientYaw == 0) cart.oldClientYaw = cart.rotationYawClientReal;
-
-            float tempYaw = (cart.rotationYawClientReal - cart.oldClientYaw);
-            float newYaw = 0;
-            //System.out.println("rotationYawBogie "+rotationYawBogie+" oldYaw "+cart.oldClientYaw+" tempYaw "+(Math.abs(tempYaw)/10));
-            //System.out.println(Math.abs(cart.oldClientYaw-rotationYawBogie));
-            if (Math.abs(cart.oldClientYaw - cart.rotationYawClientReal) > 170) {
-                cart.oldClientYaw = cart.rotationYawClientReal;
-            }
-            if (cart.oldClientYaw != cart.rotationYawClientReal && Math.abs(cart.oldClientYaw - cart.rotationYawClientReal) > (Math.abs(tempYaw) / 10)) {
-                newYaw = cart.oldClientYaw + Math.copySign((Math.abs(tempYaw) / 10), tempYaw);
-                cart.oldClientYaw += Math.copySign((Math.abs(tempYaw) / 10), tempYaw);
-            } else {
-                newYaw = cart.rotationYawClientReal;
-                cart.oldClientYaw = cart.rotationYawClientReal;
-            }
-            //System.out.println("newYaw "+newYaw);
-            //System.out.println(90 - cart.rotationYawClientReal);
-            GL11.glRotatef((90.0f - newYaw), 0.0F, 1.0F, 0.0F);
-            cart.setRenderYaw(newYaw);
-            cart.setRenderPitch(pitch);
-        }
-
-        //if(cart.bogie!=null)cart.worldObj.spawnParticle("reddust", cart.bogie.posX, cart.bogie.posY, cart.bogie.posZ, 0.1, 0.4, 0.1);
-
-        //GL11.glRotatef(180.0F - yaw, 0.0F, 1.0F, 0.0F);
-        if (cart.bogieFront != null) {// || cart.bogieUtility[0]!=null){
-            GL11.glRotatef(-cart.anglePitchClient, 0.0F, 0.0F, 1.0F);
+            GL11.glRotatef(180-cart.rotationYaw, 0.0F, 1.0F, 0.0F);
+            //cart.rotationYaw=newYaw;
+            cart.rotationPitch=pitch;
+            GL11.glRotatef(cart.rotationPitch, 0.0F, 0.0F, 1.0F);
         }
         float var28 = cart.getRollingAmplitude() - time;
 
@@ -196,12 +168,12 @@ public class RenderRollingStock extends Render {
             }
 
             if (cart.bogieFront != null) {// || cart.bogieUtility[0]!=null){
-                renderSmokeFX(cart, 90 + cart.rotationYawClientReal, cart.anglePitchClient, render.getSmokeType(), cart.render_cache.smokePosition, render.getSmokeIterations(), time, render.hasSmokeOnSlopes());
+                renderSmokeFX(cart, 90 + cart.rotationYaw, cart.rotationPitch, render.getSmokeType(), cart.render_cache.smokePosition, render.getSmokeIterations(), time, render.hasSmokeOnSlopes());
             }
         }
         if (render.hasExplosion()) {
             if (cart.bogieFront != null) {// || cart.bogieUtility[0]!=null){
-                renderExplosionFX(cart, 90 + cart.rotationYawClientReal, cart.anglePitchClient, render.getExplosionType(), render.getExplosionFX(), render.getExplosionFXIterations(), render.hasSmokeOnSlopes());
+                renderExplosionFX(cart, 90 + cart.rotationYaw, cart.rotationPitch, render.getExplosionType(), render.getExplosionFX(), render.getExplosionFXIterations(), render.hasSmokeOnSlopes());
             }
         }
 

@@ -19,7 +19,7 @@ import cpw.mods.fml.relauncher.Side;
 import ebf.tim.entities.EntitySeat;
 import ebf.tim.networking.PacketSeatUpdate;
 import ebf.tim.utility.DebugUtil;
-import net.minecraft.item.Item;
+import fexcraft.tmt.slim.TextureManager;
 import net.minecraft.item.ItemArmor.ArmorMaterial;
 import net.minecraft.launchwrapper.Launch;
 import net.minecraft.world.gen.structure.MapGenStructureIO;
@@ -38,8 +38,6 @@ import train.common.core.CreativeTabTraincraft;
 import train.common.core.EntityIds;
 import train.common.core.TrainModCore;
 import train.common.core.handlers.*;
-import train.common.core.util.TraincraftUtil;
-import train.common.entity.CollisionBox;
 import train.common.entity.rollingStock.EntityPassengerPassengerCar1;
 import train.common.entity.zeppelin.EntityZeppelinOneBalloon;
 import train.common.entity.zeppelin.EntityZeppelinTwoBalloons;
@@ -48,7 +46,6 @@ import train.common.generation.WorldGenWorld;
 import train.common.items.TCItems;
 import train.common.library.EnumTrains;
 import train.common.library.Info;
-import train.common.library.ItemIDs;
 import train.common.library.TraincraftRegistry;
 import train.common.recipes.AssemblyTableRecipes;
 
@@ -169,6 +166,13 @@ public class Traincraft {
     public void init(FMLInitializationEvent event) {
         tcLog.info("Start Initialization");
         TCBlocks.init();
+
+        if (Loader.isModLoaded("ForgeMultipart"))
+        {
+            tcLog.info("ForgeMultipart detected. Registering Traincraft Blocks");
+            train.common.core.plugins.ForgeMultiPart.registerBlocks();
+        }
+
         TCItems.init();
         if (Traincraft.hasTCCEAddon()) {
             TCItems.registerTCCERollingStock();
@@ -214,7 +218,7 @@ public class Traincraft {
         AssemblyTableRecipes.recipes();
 
         EntityRegistry.registerModEntity(EntityZeppelinTwoBalloons.class, "zeppelin", EntityIds.ZEPPELIN, Traincraft.instance, 512, 1, true);//zepplin
-        EntityRegistry.registerModEntity(EntityBogie.class, "Entity Front Bogie", EntityIds.LOCOMOTIVE_BOGIE, Traincraft.instance, 512, 1, true);//front bogie
+        EntityRegistry.registerModEntity(EntityBogie.class, "Entity Front Bogie", EntityIds.LOCOMOTIVE_BOGIE, Traincraft.instance, 512, 3, true);//front bogie
         EntityRegistry.registerModEntity(EntityZeppelinOneBalloon.class, "zeppelin big", EntityIds.ZEPPELIN_BIG, Traincraft.instance, 512, 1, true);//zepplin big
         EntityRegistry.registerModEntity(EntitySeat.class, "Seat", 16, Traincraft.instance,512,3,true);//seat
         for(TrainRecord trains : EnumTrains.trains()){
@@ -270,6 +274,7 @@ public class Traincraft {
 
         if(proxy.isClient()) {
             trainConverter.write();
+            TextureManager.collectIngotColors();
         }
 
         tcLog.info("Finished PostInitialization");

@@ -62,6 +62,8 @@ import java.util.Calendar;
 
 public class ClientProxy extends CommonProxy {
 
+    public static int railSkin=3;
+
     public static final net.minecraft.client.renderer.entity.RenderPlayer playerRender = new net.minecraft.client.renderer.entity.RenderPlayer(){
         EntityRollingStock stock;
         @Override
@@ -328,9 +330,7 @@ public class ClientProxy extends CommonProxy {
             case GuiIDs.TRAIN_WORKBENCH:
                 return te instanceof TileTrainWbench ? new GuiTrainCraftingBlock(player.inventory, player.worldObj, (TileTrainWbench) te) : null;
             case (GuiIDs.LOCO):
-                if (riddenByEntity != null && riddenByEntity.ridingEntity instanceof EntityRollingStock) {
-                    return new GuiLoco2(riddenByEntity.inventory, entity);
-                } else if (riddenByEntity != null && riddenByEntity.ridingEntity instanceof EntitySeat) {
+                if (riddenByEntity != null && riddenByEntity.ridingEntity instanceof EntitySeat) {
                     return new GuiLoco2(riddenByEntity.inventory, world.getEntityByID(((EntitySeat) entity).parentId));
                 } else {
                     return null;

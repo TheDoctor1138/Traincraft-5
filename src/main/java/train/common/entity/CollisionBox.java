@@ -1,18 +1,14 @@
 package train.common.entity;
 
-import ebf.tim.entities.EntitySeat;
-import ebf.tim.utility.DebugUtil;
 import mods.railcraft.api.carts.IFluidCart;
 import mods.railcraft.api.carts.ILinkableCart;
 import mods.railcraft.api.carts.IMinecart;
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.IEntityMultiPart;
 import net.minecraft.entity.boss.EntityDragonPart;
 import net.minecraft.entity.item.EntityMinecart;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.MovingObjectPosition;
@@ -64,7 +60,6 @@ public class CollisionBox extends EntityDragonPart implements IInventory, IFluid
     public boolean interactFirst(EntityPlayer p_130002_1_) {
         if(worldObj.isRemote){
             Traincraft.keyChannel.sendToServer(new PacketInteract(host.getEntityId()));
-            return true;
         }
         return host != null && host.interactFirst(p_130002_1_);
     }

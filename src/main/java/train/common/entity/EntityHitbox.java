@@ -4,31 +4,16 @@ import ebf.tim.entities.EntitySeat;
 import ebf.tim.utility.CommonUtil;
 import ebf.tim.utility.DebugUtil;
 import fexcraft.tmt.slim.Vec3d;
-import mods.railcraft.api.carts.ILinkableCart;
-import mods.railcraft.api.carts.IMinecart;
-import net.minecraft.block.BlockAir;
-import net.minecraft.client.Minecraft;
+import fexcraft.tmt.slim.Vec3f;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
-import net.minecraft.entity.boss.EntityDragonPart;
-import net.minecraft.entity.item.EntityMinecart;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.*;
-import net.minecraft.world.World;
-import net.minecraftforge.common.IMinecartCollisionHandler;
-import net.minecraftforge.common.util.ForgeDirection;
-import net.minecraftforge.fluids.Fluid;
-import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidTankInfo;
-import net.minecraftforge.fluids.IFluidHandler;
-import sun.security.util.Debug;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.EntityDamageSource;
 import train.common.api.AbstractTrains;
 import train.common.api.EntityBogie;
 import train.common.api.EntityRollingStock;
 import train.common.api.Locomotive;
-import train.common.core.handlers.LinkHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,9 +60,9 @@ public class EntityHitbox {
         }
         Vec3d part;
         for(int i=0; i<interactionBoxes.size();i++) {
-            part = CommonUtil.rotateDistance(-0.25 + -host.getOptimalDistance(null) +
+            part = CommonUtil.rotateDistance( -host.getOptimalDistance(null) +
                             ((host.getHitboxSize()[0] / interactionBoxes.size()) * (i + 0.5f)),
-                    -pitch, yaw + 90).addVector(x, y, z);
+                    -pitch, yaw).addVector(x, y, z);
             interactionBoxes.get(i).setPosition(part.xCoord, part.yCoord, part.zCoord);
         }
     }
@@ -99,8 +84,44 @@ public class EntityHitbox {
                     EntityRollingStock entityOne = (((CollisionBox) e).host);
                     if (entityOne.isAttaching && host.isAttaching) {
                         if(entityOne.canBeAdjusted(host) || host.canBeAdjusted(entityOne)){
-                            LinkHandler.addStake(host, entityOne, true);
-                            LinkHandler.addStake(entityOne, host, true);
+
+
+                            if(new Vec3f(front.posX,front.posY,front.posZ).subtract(new Vec3f(entityOne.posX,entityOne.posY,entityOne.posZ)).length()
+                                    <
+                                    new Vec3f(back.posX,back.posY,back.posZ).subtract(new Vec3f(entityOne.posX,entityOne.posY,entityOne.posZ)).length()
+                            ){
+                                if(host.frontLink==null){
+                                    host.frontLink=entityOne;
+                                }
+                            } else {
+                                if(host.backLink==null){
+                                    host.backLink=entityOne;
+                                }
+                            }
+
+                            if(new Vec3f(entityOne.collisionHandler.front.posX,entityOne.collisionHandler.front.posY,entityOne.collisionHandler.front.posZ).subtract(new Vec3f(host.posX,host.posY,host.posZ)).length()
+                                    <
+                                    new Vec3f(entityOne.collisionHandler.back.posX,entityOne.collisionHandler.back.posY,entityOne.collisionHandler.back.posZ).subtract(new Vec3f(host.posX,host.posY,host.posZ)).length()
+                            ){
+                                if(entityOne.frontLink==null){
+                                    entityOne.frontLink=host;
+                                }
+                            } else {
+                                if(entityOne.backLink==null){
+                                    entityOne.backLink=host;
+                                }
+                            }
+                            entityOne.isAttaching = false;
+                            host.isAttaching = false;
+
+                            host.updateLinks();
+
+
+                            EntityPlayer entityplayer = host.worldObj.getClosestPlayerToEntity(host, 20);//
+                            if (entityplayer != null) {
+                                entityplayer.addChatMessage(new ChatComponentText("attached!"));
+                            }
+
                         } else {
                             EntityPlayer p = host.getWorld().getClosestPlayerToEntity(host,32);
                             if(p!=null){
@@ -111,11 +132,11 @@ public class EntityHitbox {
                     } else {
                         double[] motion = CommonUtil.rotatePoint(0.005, 0,
                                 CommonUtil.atan2degreesf(e.posZ - host.posZ, e.posX - host.posX));
-                        host.addVelocity(-motion[0], 0, -motion[2]);
+                        //host.addVelocity(-motion[0], 0, -motion[2]);
                         if (entityOne instanceof Locomotive) {
-                            entityOne.addVelocity(motion[0] * 0.2, 0, motion[2] * 0.2);
+                          //  entityOne.addVelocity(motion[0] * 0.2, 0, motion[2] * 0.2);
                         } else {
-                            entityOne.addVelocity(motion[0], 0, motion[2]);
+                         //   entityOne.addVelocity(motion[0], 0, motion[2]);
                         }
                     }
 
@@ -126,9 +147,15 @@ public class EntityHitbox {
                                         host instanceof Locomotive ? "Locomotive" : "rollingstock", host),
                                 (float) (Math.abs(host.motionX) + Math.abs(host.motionZ)) * 0.5f);
                     } else if (Math.abs(host.motionX) + Math.abs(host.motionZ) <0.05) {
-                        double[] motion = CommonUtil.rotatePoint(0.05, 0,
-                                CommonUtil.atan2degreesf( host.posZ- e.posZ, host.posX-e.posX));
-                        host.addVelocity(motion[0], 0, motion[2]);
+                        double distanceFront = Math.sqrt((e.posX - front.posX) * (e.posX - front.posX)
+                                + (e.posZ - front.posZ) * (e.posZ - front.posZ));
+                        double distanceBack = Math.sqrt((e.posX - back.posX) * (e.posX - back.posX)
+                                + (e.posZ - back.posZ) * (e.posZ - back.posZ));
+                        if (distanceFront<distanceBack) {
+                            host.appendMovement(-0.005);
+                        } else {
+                            host.appendMovement(0.005);
+                        }
                     }
                 }
             }

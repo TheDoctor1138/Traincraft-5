@@ -21,7 +21,10 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.util.*;
+import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.DamageSource;
+import net.minecraft.util.StatCollector;
 import net.minecraft.world.ChunkCoordIntPair;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ForgeChunkManager;
@@ -55,14 +58,10 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
     public EntityPlayer playerEntity;
     public double Link1;
     public double Link2;
-    protected boolean linked = false;
-    public AbstractTrains cartLinked1;
-    public AbstractTrains cartLinked2;
+    public AbstractTrains frontLink;
+    public AbstractTrains backLink;
     //private Set chunks;
     protected Ticket chunkTicket;
-    public float renderYaw;
-    protected float renderPitch;
-    public float serverRealRotation;
     public TrainHandler train;
     public List<ChunkCoordIntPair> loadedChunks = new ArrayList<>();
     public boolean shouldChunkLoad = true;
@@ -76,6 +75,8 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
     public List<EntitySeat> seats = new LinkedList<>();
 
     public ArrayList<AbstractTrains> consist;
+    public double pullingWeight=0;
+    public Integer consistLeadID=null;
     /**
      * A reference to EnumTrains containing all spec for this specific train
      */
@@ -178,7 +179,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         if(world==null){return;}
         renderDistanceWeight = 2.0D;
         entity_data.putString("color", SkinRegistry.get(this).size()>0 ? SkinRegistry.get(this).get(0) : "");
-        dataWatcher.addObject(12, entity_data.toXMLString());
+        dataWatcher.addObject(30, entity_data.toXMLString());
         dataWatcher.addObject(7, trainOwner);
         dataWatcher.addObject(8, trainDestroyer);
         dataWatcher.addObject(9, trainName);
@@ -208,6 +209,12 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         } else {
             return null;
         }
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public float getShadowSize() {
+        return 0.0F;
     }
 
     public String getTrainType(){
@@ -259,8 +266,6 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
     //public abstract int getID();
 
     public abstract boolean canBeAdjusted(EntityMinecart cart2);
-
-    public abstract float getOptimalDistance(EntityMinecart cart2);
 
     public abstract List<ItemStack> getItemsDropped();
 
@@ -339,7 +344,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
             }
             entity_data.putString("color", trainRecord.getLiveries().get(color));
         }
-        dataWatcher.updateObject(12, entity_data.toXMLString());
+        dataWatcher.updateObject(30, entity_data.toXMLString());
         this.getEntityData().setString("xml", entity_data.toXMLString());
     }
 
@@ -351,21 +356,13 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         }
 
         entity_data.putString("color", color);
-        dataWatcher.updateObject(12, entity_data.toXMLString());
+        dataWatcher.updateObject(30, entity_data.toXMLString());
         this.getEntityData().setString("xml", entity_data.toXMLString());
-    }
-
-    public void setRenderYaw(float yaw) {
-        this.renderYaw = yaw;
-    }
-
-    public void setRenderPitch(float pitch) {
-        this.renderPitch = pitch;
     }
 
     public String getColor() {
         if (worldObj != null) {
-            entity_data.updateData(dataWatcher.getWatchableObjectString(12));
+            entity_data.updateData(dataWatcher.getWatchableObjectString(30));
             if (entity_data.hasString("color")) {
                 return entity_data.getString("color");
             }
@@ -390,7 +387,6 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
 
         nbttagcompound.setInteger("numberOfTrains", AbstractTrains.numberOfTrains);
         nbttagcompound.setBoolean("isAttached", this.isAttached);
-        nbttagcompound.setBoolean("linked", this.linked);
         //nbttagcompound.setDouble("motionX", motionX);
         //nbttagcompound.setDouble("motionZ", motionZ);
         nbttagcompound.setTag("Motion", this.newDoubleNBTList(this.motionX, this.motionY, this.motionZ));
@@ -428,7 +424,6 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
 
         numberOfTrains = nbttagcompound.getInteger("numberOfTrains");
         isAttached = nbttagcompound.getBoolean("isAttached");
-        linked = nbttagcompound.getBoolean("linked");
         //motionX = nbttagcompound.getDouble("motionX");
         //motionZ = nbttagcompound.getDouble("motionZ");
         NBTTagList nbttaglist1 = nbttagcompound.getTagList("Motion", 6);            this.motionX = nbttaglist1.func_150309_d(0);
@@ -658,6 +653,80 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         }
     }
 
+    public boolean isAccelerating(){return false;}
+
+
+    /**
+     * called on linking changes and when a train changes running states
+     * @param consist the list of entities in the consist
+     */
+    public void setValuesOnLinkUpdate(ArrayList<AbstractTrains> consist){
+        pullingWeight=0;
+        this.consist=consist;
+        for(AbstractTrains t : consist) {
+            pullingWeight +=t.weightKg();
+        }
+    }
+
+    public void updateLinks(){
+
+        ArrayList<AbstractTrains> transports = new ArrayList<>();
+        List<AbstractTrains> IDs = new ArrayList<>();
+        Integer lead=null;
+        AbstractTrains link=this;
+        transports.add(link);
+        IDs.add(this);
+        if(accelerate!=0){
+            lead=getEntityId();
+        }
+        if(frontLink!=null){
+            link =frontLink;
+        }
+        while (link!=null){
+            if(!transports.contains(link)) {
+                if(link.accelerate!=0){
+                    lead=link.getEntityId();
+                }
+                transports.add(link);
+                IDs.add(link);
+                if (link.frontLink != null && !IDs.contains(link.frontLink)) {
+                    link = link.frontLink;
+                } else if (link.backLink != null && !IDs.contains(link.backLink)) {
+                    link = link.backLink;
+                }
+            } else {
+                link = null;
+            }
+        }
+        //repeat for back link
+        if(backLink!=null){
+            link =backLink;
+        }
+        while (link!=null){
+            if(!transports.contains(link)) {
+                if(link.accelerate!=0){
+                    lead=link.getEntityId();
+                }
+                transports.add(link);
+                IDs.add(link);
+                if (link.frontLink != null && !IDs.contains(link.frontLink)) {
+                    link = link.frontLink;
+                } else if (link.backLink != null && !IDs.contains(link.backLink)) {
+                    link = link.backLink;
+                }
+            } else {
+                link = null;
+            }
+        }
+
+        //now tell everything in the list, including this, that there's a new list, and provide said list.
+        for(AbstractTrains t:transports){
+            t.consist=transports;
+            t.consistLeadID=lead;
+            t.setValuesOnLinkUpdate(consist);
+        }
+    }
+
     /**
      * @author 02skaplan
      * <p>Called to setup the overlay texture manager for the given AbstractTrain. It is recommended
@@ -755,11 +824,36 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
     public float[][] getRiderOffsets(){return new float[][]{{0,0,0}};}
 
 
-    /**returns the size of the hitbox in blocks.
+    /**
+     * NOTE: either this or getOptimalDistance MUST be overidden.
+     *   bad things will happen if you don't use at least one.
+     * returns the size of the hitbox in blocks.
      * example:
      * return new float[]{x,y,z};
      * may not return null*/
-    public float[] getHitboxSize(){return new float[]{Math.abs(rotationPoints()[0])+(getOptimalDistance(null)*2),2f,1f};}
+    public float[] getHitboxSize(){
+
+        if(getSpec()!=null && getSpec().getBogieLocoPosition()!=0){
+            return new float[]{(float)Math.abs(getSpec().getBogieLocoPosition())+(Math.abs(getOptimalDistance(null)*2f)),2f,1f};
+        }
+
+        return new float[]{Math.abs((getOptimalDistance(null)*2)),2f,1f};}
+
+    /**
+     * LEGACY METHOD, still supported, but really, use getHitboxSize instead.
+     * Gets the optimal distance between linked carts. This is called on both
+     * carts and added together to determine the optimal rest distance between
+     * linked carts. The LinkageManager will attempt to maintain this distance
+     * between linked carts at all times. Default =
+     * LinkageManager.OPTIMAL_DISTANCE
+     * ETERNAL's NOTE: because this is forcing the value of EntityMinecart, it's actually a call to the super but using this instance. Not actually an infinate look like compiler thinks.
+     *
+     * @param cart The cart that you are linked with.
+     * @return The optimal rest distance
+     */
+    public float getOptimalDistance(EntityMinecart cart) {
+        return getHitboxSize()[0]*0.5f;
+    }
 
     /**defines if the transport is immune to explosions*/
     public boolean isReinforced(){return false;}
@@ -789,9 +883,9 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
      * may not return null*/
     public float[] rotationPoints(){
         if(getSpec()==null || getSpec().getBogieLocoPosition()==0){
-            return new float[]{0.5f,-0.5f};
+            return new float[]{getHitboxSize()[0]*0.5f,-getHitboxSize()[0]*0.5f};
         }
-        return new float[]{(float)getSpec().getBogieLocoPosition(),0};}
+        return new float[]{0,-(float)Math.abs(getSpec().getBogieLocoPosition())};}
 
     /**defines the scale to render the model at. Default is 0.0625*/
     public float[][] getRenderScale(){return new float[][]{getRender().getScale()};}

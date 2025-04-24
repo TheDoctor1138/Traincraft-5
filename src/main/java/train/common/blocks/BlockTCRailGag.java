@@ -15,7 +15,6 @@ import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import train.common.Traincraft;
-import train.common.library.BlockIDs;
 import train.common.library.Info;
 import train.common.tile.TileTCRail;
 import train.common.tile.TileTCRailGag;
@@ -28,7 +27,7 @@ public class BlockTCRailGag extends Block {
 	public BlockTCRailGag() {
 		super(Material.iron);
 		setCreativeTab(Traincraft.tcTab);
-		this.setBlockBounds(0.0F, 0.0F, 0.0F, 1.0F, 0.025F, 1.0F);
+		this.setBlockBounds(0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F);
 	}
 
 	/**
