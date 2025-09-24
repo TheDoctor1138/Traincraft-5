@@ -5,7 +5,9 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import ebf.XmlBuilder;
 import ebf.tim.api.SkinRegistry;
+import ebf.tim.api.TransportSkin;
 import ebf.tim.entities.EntitySeat;
+import ebf.tim.utility.DebugUtil;
 import fexcraft.tmt.slim.ModelBase;
 import io.netty.buffer.ByteBuf;
 import mods.railcraft.api.carts.IMinecart;
@@ -21,32 +23,33 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.DamageSource;
-import net.minecraft.util.StatCollector;
+import net.minecraft.util.*;
 import net.minecraft.world.ChunkCoordIntPair;
 import net.minecraft.world.World;
 import net.minecraftforge.common.ForgeChunkManager;
 import net.minecraftforge.common.ForgeChunkManager.Ticket;
+import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.common.util.ForgeDirection;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTankInfo;
 import net.minecraftforge.fluids.IFluidHandler;
 import train.client.render.Bogie;
+import train.client.render.RenderEnum;
 import train.client.render.TransportRenderCache;
 import train.common.Traincraft;
 import train.common.adminbook.ItemAdminBook;
 import train.common.core.handlers.ConfigHandler;
 import train.common.core.handlers.TrainHandler;
 import train.common.core.util.DepreciatedUtil;
+import train.common.entity.TrustedPlayer;
 import train.common.items.ItemChunkLoaderActivator;
 import train.common.items.ItemRollingStock;
 import train.common.items.ItemWrench;
 import train.common.library.Info;
 import train.common.library.TraincraftRegistry;
 import train.common.overlaytexture.OverlayTextureManager;
+import train.common.trainConverter;
 
 import java.util.*;
 
@@ -129,6 +132,10 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
      */
     public boolean locked = false;
     /**
+     * <p>List of players trusted to use the train</p>
+     */
+    private List<TrustedPlayer> trustedList = new ArrayList<>();
+    /**
      * The owner of the train: The user who spawned it
      */
     public String trainOwner = "";
@@ -163,6 +170,8 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
     public static int uniqueIDs = 1;
 
 
+    public boolean isLocoTurnedOn = false;
+
     /**
      * The distance this train has traveled
      */
@@ -178,7 +187,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         super(world);
         if(world==null){return;}
         renderDistanceWeight = 2.0D;
-        entity_data.putString("color", SkinRegistry.get(this).size()>0 ? SkinRegistry.get(this).get(0) : "");
+        entity_data.putString("color", getDefaultSkin());
         dataWatcher.addObject(30, entity_data.toXMLString());
         dataWatcher.addObject(7, trainOwner);
         dataWatcher.addObject(8, trainDestroyer);
@@ -222,13 +231,22 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
     }
 
     /**
-     * this is basically NBT for entity spawn, to keep data between client and server in sync because some data is not automatically shared.
+     * <p>This method is called on the client side when an entity is being loaded in. The additionalData buffer is sent from the server
+     * and is populated by the server using the writeSpawnData method.</p>
+     * <br></br><p>"this is basically NBT for entity spawn, to keep data between client and server in sync because some data is not automatically shared."</p>
+     * @param additionalData The packet data stream
      */
     @Override
     public void readSpawnData(ByteBuf additionalData) {
         locked = additionalData.readBoolean();
     }
 
+    /**
+     * <p>This method is called on the server side when a connected client is loading the entity. Data written
+     * to the ByteBuffer will be synced with the client and available to the client through the readSpawnData method.</p>
+     * <br></br><p>"this is basically NBT for entity spawn, to keep data between client and server in sync because some data is not automatically shared."</p>
+     * @param buffer The packet data stream
+     */
     @Override
     public void writeSpawnData(ByteBuf buffer) {
         buffer.writeBoolean(locked);
@@ -342,7 +360,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
             if (color == -1 || !trainRecord.getLiveries().contains(DepreciatedUtil.getColorAsString(color))) {
                 color = color+1>trainRecord.getLiveries().size()-1?0:color+1;
             }
-            entity_data.putString("color", trainRecord.getLiveries().get(color));
+            entity_data.putString("color", trainRecord.getLiveries().get(color).addr);
         }
         dataWatcher.updateObject(30, entity_data.toXMLString());
         this.getEntityData().setString("xml", entity_data.toXMLString());
@@ -350,12 +368,14 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
 
     public void setColor(String color) {
         if (SkinRegistry.get(this) != null && SkinRegistry.get(this).size()>0) {
-            if (color.equals("-1") || !SkinRegistry.get(this).contains(color)) {
-                color = (SkinRegistry.get(this).get(SkinRegistry.get(this).indexOf(color)+1>SkinRegistry.get(this).size()-1?0:SkinRegistry.get(this).indexOf(color)+1));
+            if (color.equals("-1") || !SkinRegistry.get(this).containsKey(color)) {
+                List<TransportSkin> skins = new ArrayList<>();
+                skins.addAll(SkinRegistry.get(this).values());
+                color = (skins.get(skins.indexOf(color)+1>skins.size()-1?0:skins.indexOf(color)+1).addr);
             }
         }
 
-        entity_data.putString("color", color);
+        entity_data.putString("color", SkinRegistry.get(this).get(color).addr);
         dataWatcher.updateObject(30, entity_data.toXMLString());
         this.getEntityData().setString("xml", entity_data.toXMLString());
     }
@@ -367,7 +387,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
                 return entity_data.getString("color");
             }
         }
-        return SkinRegistry.get(this).get(0);
+        return SkinRegistry.get(this).get(0).addr;
     }
 
     @Override
@@ -381,6 +401,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         nbttagcompound.setString("theOwner", trainOwner);
         nbttagcompound.setBoolean("locked", locked);
         nbttagcompound.setString("theCreator", trainCreator);
+        exportTrustedListToNBT(nbttagcompound);
         nbttagcompound.setString("theName", trainName);
         nbttagcompound.setInteger("uniqueID", uniqueID);
         //nbttagcompound.setInteger("uniqueIDs",uniqueIDs);
@@ -401,6 +422,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         if (acceptsOverlayTextures) {
             nbttagcompound.setTag("overlayTextureConfigTag", overlayTextureContainer.getOverlayConfigTag());
         }
+        exportTrustedListToNBT(nbttagcompound);
     }
 
     @Override
@@ -417,6 +439,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         this.locked = nbttagcompound.getBoolean("locked");
         setFlag(8, locked);
         trainCreator = nbttagcompound.getString("theCreator");
+        importTrustedListFromNBT(nbttagcompound);
         trainName = nbttagcompound.getString("theName");
         uniqueID = nbttagcompound.getInteger("uniqueID");
         //uniqueIDs = nbttagcompound.getInteger("uniqueIDs");
@@ -492,6 +515,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         }
         if (this.uniqueID != -1) stack.getTagCompound().setInteger("uniqueID", this.uniqueID);
         if (this.trainCreator != null && !this.trainCreator.isEmpty()) stack.getTagCompound().setString("trainCreator", this.trainCreator);
+        exportTrustedListToNBT(stack.getTagCompound());
         stack.getTagCompound().setString("trainColor", this.getColor());
         // Only save the overlay configuration to NBT if it exists. No need to store an empty configuration in NBT as it will be initialized as the default when the entity spawns in.
         if (this.acceptsOverlayTextures && this.getOverlayTextureContainer().getType() != OverlayTextureManager.Type.NONE) {
@@ -525,6 +549,11 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
     public void setTrainLockedFromPacket(boolean set) {
         // System.out.println(worldObj.isRemote + " " + set);
         locked = set;
+    }
+
+    @Override
+    public boolean canBePushed() {
+        return false;
     }
 
 
@@ -566,9 +595,10 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
                         ((EntityPlayer) damagesource.getEntity()).inventory.getCurrentItem() != null &&
                         ((EntityPlayer) damagesource.getEntity()).inventory.getCurrentItem().getItem() instanceof ItemWrench) {
 
-                    ((EntityPlayer) damagesource.getEntity()).addChatMessage(new ChatComponentText("Removing the train using OP permission"));
+                    ((EntityPlayer) damagesource.getEntity()).addChatMessage(new ChatComponentText("Removing the train using OP permission."));
                     return false;
-                } else if (!((EntityPlayer) damagesource.getEntity()).getDisplayName().equalsIgnoreCase(this.trainOwner)) {
+                }
+                else if (!((EntityPlayer) damagesource.getEntity()).getDisplayName().equalsIgnoreCase(this.trainOwner) && !(this.isPlayerTrustedToBreak(((EntityPlayerMP) damagesource.getEntity()).getDisplayName()))) {
                     ((EntityPlayer) damagesource.getEntity()).addChatMessage(new ChatComponentText("You are not the owner!"));
                     return true;
                 }
@@ -728,6 +758,80 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
     }
 
     /**
+     * @return Returns String ArrayList of trusted players' usernames.
+     */
+    public List<TrustedPlayer> getTrustedList() {
+        return trustedList;
+    }
+    public void setTrustedList(List<TrustedPlayer> trustedList) { this.trustedList = trustedList; }
+
+    /**
+     * <p>Returns whether a player is trusted to a piece of rolling stock.</p>
+     * @param displayName Case-insensitive display name of player.
+     * @return True if the player is trusted, false if the player is not trusted.
+     */
+    public boolean isPlayerTrusted(String displayName) {
+        for (TrustedPlayer trustedPlayer : this.getTrustedList()) {
+            if (trustedPlayer.getDisplayName().equalsIgnoreCase(displayName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * <p>Returns whether a player is trusted to break a piece of rolling stock.</p>
+     * @param displayName Case-insensitive display name of player.
+     * @return True if player has break access, false if player does not have break access.
+     */
+    public boolean isPlayerTrustedToBreak(String displayName) {
+        for (TrustedPlayer trustedPlayer : this.getTrustedList()) {
+            if (trustedPlayer.getDisplayName().equalsIgnoreCase(displayName)) {
+                return trustedPlayer.hasBreakAccess();
+            }
+        }
+        return false;
+    }
+
+    /**
+     * <p>Export trusted players to NBT tag for data saving.</p>
+     * @param nbttagcompound NBT tag into which to write trusted list.
+     */
+    public void exportTrustedListToNBT(NBTTagCompound nbttagcompound) {
+        if (!trustedList.isEmpty()) {
+            NBTTagList trustedList = new NBTTagList();
+            for (TrustedPlayer trustedPlayer : this.trustedList) {
+                NBTTagCompound trustedPlayerTag = new NBTTagCompound();
+                trustedPlayerTag.setString("playerName", trustedPlayer.getDisplayName());
+                trustedPlayerTag.setBoolean("breakAccess", trustedPlayer.hasBreakAccess());
+                trustedList.appendTag(trustedPlayerTag);
+            }
+            nbttagcompound.setTag("trustedList", trustedList);
+            nbttagcompound.setString("trustedListPreviousOwner", getTrainOwner());
+        }
+    }
+
+    /**
+     * <p>Import a trusted player list from a given NBT tag.</p>
+     * @param nbttagcompound NBT tag from which to import trusted list.
+     */
+    public void importTrustedListFromNBT(NBTTagCompound nbttagcompound) {
+        if (nbttagcompound.hasKey("trustedList")) {
+            NBTTagList trustedList = nbttagcompound.getTagList("trustedList", Constants.NBT.TAG_COMPOUND);
+            this.trustedList.clear();
+            for (int i = 0; i < trustedList.tagCount(); i++) {
+                if (!trustedList.getCompoundTagAt(i).getString("playerName").equalsIgnoreCase(trainOwner)) // Check to ensure we're not adding the current owner to the trusted list...
+                    this.trustedList.add(new TrustedPlayer(trustedList.getCompoundTagAt(i).getString("playerName"), trustedList.getCompoundTagAt(i).getBoolean("breakAccess")));
+            }
+            if (nbttagcompound.hasKey("trustedListPreviousOwner")) { // If the previous owner is not the one who placed down the piece of rolling stock...
+                if (!nbttagcompound.getString("trustedListPreviousOwner").equalsIgnoreCase(trainOwner)) {
+                    getTrustedList().add(new TrustedPlayer(nbttagcompound.getString("trustedListPreviousOwner"), true));
+                }
+            }
+        }
+    }
+
+    /**
      * @author 02skaplan
      * <p>Called to setup the overlay texture manager for the given AbstractTrain. It is recommended
      * to call this from the constructor of the AbstractTrain-derived entity class.</p>
@@ -821,7 +925,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
      * example:
      * return new float[][]{{x1,y1,z1},{x2,y2,z2}, etc...};
      * may return null*/
-    public float[][] getRiderOffsets(){return new float[][]{{0,0,0}};}
+    public float[][] getRiderOffsets(){return null;}
 
 
     /**
@@ -871,7 +975,7 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
      * return new Bogie[]{new Bogie(new MyModel1(), offset), new Bogie(new MyModel2(), offset2), etc...};
      * may return null. */
     public Bogie[] bogies(){
-        return new Bogie[]{null};
+        return null;
     }
 
     /**defines the points that the entity uses for path-finding and rotation, with 0 being the entity center.
@@ -918,13 +1022,20 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
      * the first TransportSkin added to the registry for a transport class will be the default
      * additionally the addSkin function may be called from any other class at any time.
      * the registerSkins method is only for organization and convenience.*/
-    public void registerSkins(){}
+    public void registerSkins(){
+        for (String col : getSpec().getColors()) {
+            SkinRegistry.addSkin(this.getClass(), Info.resourceLocation+":"+ col + ".png", col);
+        }
+    }
 
     /**
      * return the name for the default TransportSkin of the transport.
      */
     public String getDefaultSkin(){
-        return SkinRegistry.get(this).get(0);
+        if(getSpec().getColors()!=null && getSpec().getColors().size()>0){
+            return SkinRegistry.get(this).get(getSpec().getColors().get(0)).addr;
+        }
+        return getSpec().getColors().size()>0?getSpec().getColors().get(0):"";
     }
 
     /**returns a list of models to be used for the transport
