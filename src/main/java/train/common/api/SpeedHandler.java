@@ -56,7 +56,7 @@ public class SpeedHandler {
 	 * 
 	 */
 	private static float convertSpeed(Entity entity, float maxSpeed) {
-		float speed = ((Locomotive) entity).getMaxSpeed()*0.2775f;// speed is in m/s
+		float speed = ((Locomotive) entity).transportTopSpeed()*0.2775f;// speed is in m/s
 		speed /= ConfigHandler.REAL_TRAIN_SPEED?2f:6f;// applying ratio
 		return speed/10;// converted in minecraft speed
 	}

@@ -1039,8 +1039,6 @@ public class EntityRollingStock extends AbstractTrains implements ILinkableCart 
      * if X or Z is null, the bogie's existing motion velocity will be used
      */
     public void finalMove(){
-
-        applyDrag();
         if(frontLink instanceof EntityRollingStock) {
             manageLink((EntityRollingStock) frontLink);
         }
@@ -1076,7 +1074,7 @@ public class EntityRollingStock extends AbstractTrains implements ILinkableCart 
     @Override
     public void applyDrag() {
         float drag = 0.9998f, brakeBuff = 0;
-        //check if lope things can be done at all
+        //check if slope things can be done at all
         for(AbstractTrains stock : consist) {
             if(stock!=this && stock.isLocoTurnedOn){
                 return;
@@ -1108,7 +1106,7 @@ public class EntityRollingStock extends AbstractTrains implements ILinkableCart 
 
         //add in the drag from combined weight, plus brakes.
         if(pullingWeight!=0) {//in theory this should never be 0, but we know forge is dumb
-            drag -= ((getAccelerator()==0?getFriction()*0.75:getFriction()*2.5) * (pullingWeight + brakeBuff)) / 1000; //was 4448, no idea. Just adjusted until something felt nice
+            drag -= (float) (0.00005 * getFriction() * (pullingWeight / 100000.0));
         }
         //cap the drag to prevent weird behavior.
         // if it goes to 1 or higher then we speed up, which is bad, if it's below 0 we reverse, which is also bad

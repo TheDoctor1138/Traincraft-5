@@ -211,7 +211,7 @@ public class EnumTrains {
 				TrainRecord.makeEntry("locoElectricMineTrain", "Loco Electric Minetrain", EntityLocoElectricMinetrain.class, ItemIDs.minecartLocoMineTrain.item, "electric", 500, 40, 0, 80, 0, 160, 0.5, 0.97, 0, null, 18, -1),
 				TrainRecord.makeEntry("locoElectricSpeedZeroED", "Loco Electric High Speed ZeroED", EntityLocoElectricHighSpeedZeroED.class, ItemIDs.minecartLocoHighSpeedZeroED.item, "electric", 700, 240, 0, 3, 0, 230, 1.4, 0.98, 0, null, 13, -3.4),
 				TrainRecord.makeEntry("locoElectricICE1", "Loco Electric ICE 1", EntityLocoElectricICE1.class, ItemIDs.minecartICE1_Loco.item,
-						"electric", 869, 280, 0, 40, 0, 250, 1.5, 0.98, 0, new String[]{"White", "Blue"}, 13, -5),
+						"electric", 3869, 280, 5000, 40, 0, 250, 1.5, 0.04, 0, new String[]{"White", "Blue"}, 13, -5),
 				//TrainRecord.makeEntry("locoSpeedGrey",Loco High Speed",EntityLocoElectricNewHighSpeedLoco.class, null,null),
 				TrainRecord.makeEntry("locoElectricTramYellow", "Loco Electric Yellow Wood Tram", EntityLocoElectricTramWood.class, ItemIDs.minecartTramWood.item, "electric", 300, 55, 0, 10, 0, 140, 0.5, 0.965, 0, null, 14, -2),
 				TrainRecord.makeEntry("locoElectricTramNY", "Loco Electric Tram NY", EntityLocoElectricTramNY.class, ItemIDs.minecartNYTram.item,

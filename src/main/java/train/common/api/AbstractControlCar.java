@@ -382,8 +382,8 @@ public abstract class AbstractControlCar extends EntityRollingStock implements I
                 }
                 else if (brakePressed)
                 {
-                    connectedLocomotive.motionX *= brake;
-                    connectedLocomotive.motionZ *= brake;
+                    connectedLocomotive.motionX *= (Math.abs(1 - brake));
+                    connectedLocomotive.motionZ *= (Math.abs(1 - brake));
                 }
             }
         }

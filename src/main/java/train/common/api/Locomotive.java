@@ -249,7 +249,7 @@ public abstract class Locomotive extends Freight implements WirelessTransmitter,
     /**
      * returns the absolute maximum speed of the given locomotive (speed in
      * km/h) divided by 3.6 to get ms
-     *
+     *f
      * @return double
      */
     public float getMaxSpeed() {
@@ -329,10 +329,32 @@ public abstract class Locomotive extends Freight implements WirelessTransmitter,
             return accelerate = setAccel();
         }
     }
-    public double setAccel() {
-        return getSpec()==null?0.4:getSpec().getAccelerationRate();
-    }
 
+
+    public double setAccel() {
+        double totalMHP = 0;
+        double totalMass = 0;
+
+        //Grab the first carts data
+
+        totalMHP += consist.get(0).transportMetricHorsePower();
+        totalMass += consist.get(0).weightKg();
+
+        if (consist.size() > 1) {
+
+            for (int cart = 1; cart < consist.size(); cart++) {
+
+                if (consist.get(cart) instanceof Locomotive && ((Locomotive) consist.get(cart)).getIsFuelled()) {
+                    totalMHP += consist.get(cart).transportMetricHorsePower();
+                }
+                totalMass += consist.get(cart).weightKg() * ((float) cart / consist.size());
+
+            }
+        }
+
+        return (totalMHP / (totalMass * 0.1));
+
+    }
     /**
      * Set brake rate if rate = 0, default value is used
      *
@@ -347,7 +369,7 @@ public abstract class Locomotive extends Freight implements WirelessTransmitter,
     }
 
     public double setBrake() {
-        return getSpec()==null?0.97:getSpec().getBrakeRate();
+        return transportBrakingEfficiency();
     }
 
     @Override
@@ -653,7 +675,7 @@ public abstract class Locomotive extends Freight implements WirelessTransmitter,
                     appendMovement(0.0075*(forwardPressed?-accelerate:accelerate));
                 }
             } else if (brakePressed) {
-                multiplyVelocity(brake);
+                multiplyVelocity(Math.abs(1 - brake));
             }
 
 
@@ -1228,7 +1250,7 @@ public abstract class Locomotive extends Freight implements WirelessTransmitter,
 
     public void slow(Integer desiredSpeed) {
         if (this.getSpeed() >= desiredSpeed) {
-            multiplyVelocity(brake);
+            multiplyVelocity(Math.abs(1 - brake));
         }
     }
 

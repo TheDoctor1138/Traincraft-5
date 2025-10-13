@@ -7,6 +7,7 @@ import fexcraft.tmt.slim.Vec3d;
 import fexcraft.tmt.slim.Vec3f;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.EntityDamageSource;
@@ -201,9 +202,14 @@ public class EntityHitbox {
                             //If the config is disabled, we don't want to push ANYTHING.
                             //If the cart is in a consist containing a locomotive, we do not want to push it.
                             if (!ConfigHandler.PUSHABLE_ROLLINGSTOCK || host instanceof Locomotive || (host.consistLeadID != null && host.worldObj.getEntityByID(host.consistLeadID) instanceof Locomotive)) {
-                                //still need to push the player back though
-                                if (obj instanceof EntityLiving && containsEntity((Entity)obj)) {
-                                    ((Entity)obj).applyEntityCollision(host);
+                                //still need to push the player back though. However, if the player is riding the cart, skip the collision
+                                if (obj instanceof EntityLivingBase && containsEntity((Entity)obj)) {
+                                    if (((Entity) obj).ridingEntity != null) {
+                                        continue;
+                                    }
+                                    else{
+                                        ((Entity)obj).applyEntityCollision(host);
+                                    }
                                 }
                                 continue;
                             }

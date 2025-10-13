@@ -106,7 +106,7 @@ public class HandleMaxAttachedCarts {
         brake += (scaledPower * totalMass);
         if (brake > 1)
             brake = 0.998;
-        if (brake > 0) {// if accelerate=0 then default is used: not good here! and we don't want negative brake or brake values higher than 1 (which mean acceleration)
+        if (brake > 0) {// if brake=0 then default is used: not good here! and we don't want negative brake or brake values higher than 1 (which mean acceleration)
             if ((power * totalMass) > 0) (cart1).setBrake(brake);
         }
         if ((power * totalMass) > 0) {

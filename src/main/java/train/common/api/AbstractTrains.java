@@ -309,6 +309,15 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
         return numberOfTrains;
     }
 
+    public float getConsistMass(){
+        float totalMass = 0;
+        for (AbstractTrains t : consist){
+            totalMass =+ t.weightKg();
+
+        }
+        return totalMass;
+    }
+
     @Override
     public boolean interactFirst(EntityPlayer entityplayer) {
         ItemStack itemstack = entityplayer.inventory.getCurrentItem();
@@ -905,6 +914,9 @@ public abstract class AbstractTrains extends EntityMinecart implements IMinecart
     public float transportMetricHorsePower(){return getSpec().getMHP();}
     /**the tractive effort for the transport, this is a fallback if metric horsepower (mhp) is not available*/
     public float transportTractiveEffort(){return 0;}
+    /**the stopping power for the handbrake
+     * Value should be between 0 - 1, where 0 = no brakes and 1 = optimal brakes.*/
+    public double transportBrakingEfficiency(){return getSpec()==null? 0.03: Math.max(0.01, Math.min(getSpec().getBrakeRate(), 0.99));}
 
     /**defines the size of the inventory row by row, not counting any special slots like for fuel.
      * end result number of slots is this times 9. plus any crafting/fuel slots

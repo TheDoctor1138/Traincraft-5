@@ -37,7 +37,7 @@ public class EntityBogie extends EntityMinecart implements IMinecart, IRoutableC
 	public TileTCRail lastTrack=null;
 	public Block l,oldL;
 
-
+    public float maxSpeed;
 	private int railMetadata, xFloor=0,yFloor=0,zFloor=0;
 	private float railmax;
 	private double railPathX=0, railPathZ=0,motionSqrt,railPathX2, railPathZ2;
@@ -206,7 +206,7 @@ public class EntityBogie extends EntityMinecart implements IMinecart, IRoutableC
 	@Override
 	public float getMaxCartSpeedOnRail() {
 
-		return 1.8f;
+		return maxSpeed;
 	}
 
 	@Override
@@ -459,25 +459,34 @@ public class EntityBogie extends EntityMinecart implements IMinecart, IRoutableC
 	}
 
 	private void limitSpeedOnTCRail() {
-		double maxSpeed = Math.min(3.0D, getMaxCartSpeedOnRail());
+        maxSpeed = Math.min(3, getMaxCartSpeedOnRail());
+        maxSpeed = SpeedHandler.handleSpeed(3, maxSpeed, this.entityMainTrain);
 
-		if (this.motionX < -maxSpeed) {
+        double velocitySqrt = Math.sqrt((velocity[0] * velocity[0]) + (velocity[1] * velocity[1]));
+        if (velocitySqrt > maxSpeed){
+            velocity[0] *= 0.99;
+            velocity[1] *= 0.99;
+        }
 
-			this.motionX = -maxSpeed;
+        /*
+
+		if (this.velocity[0] < -maxSpeed) {
+
+			this.velocity[0] = -maxSpeed;
 		}
-		else if (this.motionX > maxSpeed) {
+		else if (this.velocity[0] > maxSpeed) {
 
-			this.motionX = maxSpeed;
+			this.velocity[0] = maxSpeed;
 		}
 
-		if (this.motionZ < -maxSpeed) {
+		if (this.velocity[1] < -maxSpeed) {
 
-			this.motionZ = -maxSpeed;
+			this.velocity[1] = -maxSpeed;
 		}
-		else if (this.motionZ > maxSpeed) {
+		else if (this.velocity[1] > maxSpeed) {
 
-			this.motionZ = maxSpeed;
-		}
+			this.velocity[1] = maxSpeed;
+		}*/
 	}
 
 	@Override

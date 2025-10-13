@@ -15,9 +15,9 @@ public class PacketNCSlowDownHandler implements IMessageHandler<PacketNCSlowDown
         if(trainEntity != null) {
 
 
-           trainEntity.motionX *= ((Locomotive)trainEntity).brake;
+           trainEntity.motionX *= Math.abs(1 - ((Locomotive)trainEntity).brake);
 
-            trainEntity.motionZ *=((Locomotive)trainEntity).brake;
+           trainEntity.motionZ *= Math.abs(1 - ((Locomotive)trainEntity).brake);
         }
 
 

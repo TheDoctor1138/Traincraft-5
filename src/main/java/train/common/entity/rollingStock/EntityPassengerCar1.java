@@ -42,8 +42,7 @@ public class EntityPassengerCar1 extends EntityRollingStock implements IPassenge
     /**
      * <h2>Bogie Offset</h2>
      */
-    @Override
-    public float[] rotationPoints(){return new float[]{1.7f,-1.7f};}
+
 
 
 
@@ -103,7 +102,7 @@ public class EntityPassengerCar1 extends EntityRollingStock implements IPassenge
 
     @Override
     public float weightKg() {
-        return 1000f;
+        return 10000f;
     }
 
     @Override
@@ -178,12 +177,15 @@ public class EntityPassengerCar1 extends EntityRollingStock implements IPassenge
      * <h2>Rider offsets</h2>
      */
     @Override
-    public float[][] getRiderOffsets(){return new float[][]{{1f,0.5f, 0.2f}};}
+    public float[][] getRiderOffsets(){return new float[][]{{0f,0.5f, 0.0f}};}
 
     @Override
     public float[] getHitboxSize() {
         return new float[]{3.9375f,1.875f,1.375f};
     }
+
+    @Override
+    public float[] rotationPoints(){return new float[]{2.0f,-2.0f};}
 
     @Override
     public ModelBase[] getModel(){return new ModelBase[]{new train.client.render.models.ModelPassenger6()};}

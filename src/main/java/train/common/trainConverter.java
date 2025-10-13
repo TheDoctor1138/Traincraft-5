@@ -212,6 +212,11 @@ public class trainConverter {
         builder.append(";}\n\n");
 
         builder.append("	@Override\n");
+        builder.append("	public float transportBrakingEfficiency(){return ");
+        builder.append(Math.abs(getTrain(trn).getBrakeRate() - 1));
+        builder.append(";}\n\n");
+
+        builder.append("	@Override\n");
         builder.append("	public String[] additionalItemText() { return new String[] {\"");
         builder.append(getTrain(trn).getAdditionnalTooltip());
         builder.append("\";}}\n\n");
