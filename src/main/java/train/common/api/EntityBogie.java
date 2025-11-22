@@ -350,6 +350,7 @@ public class EntityBogie extends EntityMinecart implements IMinecart, IRoutableC
 
 	private void moveOnTCCurvedSlope(int j,double radius, double startX, double startZ, int tilex, int tilez, int meta, double slopeAngle) {
 
+		moveOnTC90TurnRail(j,radius,startX,startZ);
 		railPathX2 = posX - startX;
 		railPathZ2 = posZ - startZ;
 		motionSqrt = Math.sqrt(railPathX2 * railPathX2 + railPathZ2 * railPathZ2);
@@ -358,9 +359,6 @@ public class EntityBogie extends EntityMinecart implements IMinecart, IRoutableC
 		railPathZ = startZ + ((railPathZ2 / motionSqrt) * radius);
 
 		setPosition(railPathX, j + 0.2 + yOffset, railPathZ);
-
-		double[] vel1 = turnOffsetXZ(startX,startZ,velocity[0],velocity[1],radius,motionSqrt);
-		double[] vel2 = turnOffsetXZ(startX,startZ,velocity[2],velocity[3],radius,motionSqrt);
 
 		railPathX = tilex - posX;
 		railPathZ = tilez - posZ;
@@ -376,11 +374,6 @@ public class EntityBogie extends EntityMinecart implements IMinecart, IRoutableC
 			railPathZ += 0.5;
 		}
 		posY = Math.abs(j+ Math.min(1, (slopeAngle * Math.abs(Math.sqrt(railPathX * railPathX + railPathZ * railPathZ)))) +0.2+ yOffset -ySize);
-
-		setPositionRelative(vel1[0]+vel2[0], 0, vel1[1]+vel2[1]);
-		velocity[0] = vel1[0];
-		velocity[1] = vel1[1];
-
 	}
 
 	private void moveOnTCTwoWaysCrossing() {
@@ -416,46 +409,32 @@ public class EntityBogie extends EntityMinecart implements IMinecart, IRoutableC
 	}
 
 	private void moveOnTC90TurnRail(int j,double radius, double startX, double startZ){
+        double controlX = posX - startX;
+        double controlZ = posZ - startZ;
 
-		railPathX2 = posX - startX;
-		railPathZ2 = posZ - startZ;
-		motionSqrt = Math.sqrt(railPathX2 * railPathX2 + railPathZ2 * railPathZ2);
-
-		railPathX = startX + ((railPathX2 / motionSqrt) * radius);
-		railPathZ = startZ + ((railPathZ2 / motionSqrt) * radius);
-
-		setPosition(railPathX, j + 0.2 + yOffset, railPathZ);
-
-		double[] vel1 = turnOffsetXZ(startX,startZ,velocity[0],velocity[1],radius,motionSqrt);
-		double[] vel2 = turnOffsetXZ(startX,startZ,velocity[2],velocity[3],radius,motionSqrt);
-
-		setPositionRelative(vel1[0]+vel2[0], 0, vel1[1]+vel2[1]);
-		velocity[0] = vel1[0];
-		velocity[1] = vel1[1];
-	}
-
-
-	private double[] turnOffsetXZ(double startX, double startZ, double speedX, double speedZ, double radius, double norm){
-
-		if(speedX==0 && speedZ==0){
-			return new double[]{0,0};
-		}
-
-		railPathX = posX + speedX - startX;
-		railPathZ = posZ + speedZ - startZ;
-
-		motionSqrt = Math.sqrt((railPathX * railPathX) + (railPathZ * railPathZ));
-
-		railPathX = (startX + ((railPathX / motionSqrt) * radius)) - posX;
-		railPathZ = (startZ + ((railPathZ / motionSqrt) * radius)) - posZ;
+        double controlNorm = Math.sqrt(controlX * controlX + controlZ * controlZ);
+		double xMotion=velocity[0]+velocity[2];
+		double zMotion=velocity[1]+velocity[3];
+        double vnorm = Math.sqrt(xMotion * xMotion + zMotion * zMotion);
 
 		motionSqrt = Math.sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
 
-		railPathX = Math.copySign(-(railPathZ2 / norm) * motionSqrt, railPathX);
-		railPathZ = Math.copySign((railPathX2 / norm) * motionSqrt, railPathZ);
+        double norm_cpx = controlX / controlNorm; //u
+        double norm_cpz = controlZ / controlNorm; //v
 
-		return new double[]{railPathX+0,railPathZ+0};
+        railPathX = (posX + xMotion) - startX;
+        railPathZ = (posZ + zMotion) - startZ;
 
+        double p2_c_norm = Math.sqrt((railPathX * railPathX) + (railPathZ * railPathZ));
+
+		railPathX2 = (startX + ((railPathX / p2_c_norm) * radius)) - posX;
+		railPathZ2 = (startZ + ((railPathZ / p2_c_norm) * radius)) - posZ;
+
+        setPosition(startX + ((controlX / controlNorm) * radius), posY, startZ + ((controlZ / controlNorm) * radius));
+        setPositionRelative(Math.copySign(-norm_cpz * vnorm, railPathX2), 0.0D, Math.copySign(norm_cpx * vnorm, railPathZ2));
+
+		velocity[0] = Math.copySign(-norm_cpz * motionSqrt, railPathX2);
+		velocity[1] = Math.copySign(norm_cpx * motionSqrt, railPathZ2);
 	}
 
 	private void limitSpeedOnTCRail() {
@@ -497,38 +476,22 @@ public class EntityBogie extends EntityMinecart implements IMinecart, IRoutableC
 
 	public void addVelocity(AbstractTrains host, double speed) {
 		//cache rotation so it only has to be processed once per tick
-		if(velocity[4] == 0 && velocity[5] == 0) {
-			Vec3f vec = CommonUtil.rotatePoint(new Vec3f(1,0,0),0,180 + host.rotationYaw,0);
-			velocity[4] = vec.xCoord;
-			velocity[5] = vec.zCoord;
-		}
-
-		velocity[0] += speed * velocity[4];
-		velocity[1] += speed * velocity[5];
+		Vec3f vec = CommonUtil.rotatePoint(new Vec3f(1,0,0),0,180 + host.rotationYaw,0);
+		velocity[0] += speed * vec.xCoord;
+		velocity[1] += speed * vec.zCoord;
 	}
 
 	public void multiplyVelocity(AbstractTrains host, double mult) {
-		if (velocity[4] == 0 & velocity[5] == 0) {
-			Vec3f vec = CommonUtil.rotatePoint(new Vec3f(1,0,0),0,180 + host.rotationYaw,0);
-			velocity[4] = vec.xCoord;
-			velocity[5] = vec.zCoord;
-		}
-		velocity[0] *= (mult * velocity[4]);
-		velocity[1] *= (mult * velocity[5]);
+		Vec3f vec = CommonUtil.rotatePoint(new Vec3f(1,0,0),0,180 + host.rotationYaw,0);
+		velocity[0] *= (mult * vec.xCoord);
+		velocity[1] *= (mult * vec.zCoord);
 	}
 
 	public void addLinking(AbstractTrains host, double speed){
 		//cache rotation so it only has to be processed once per tick
-		if(velocity[4]==0 && velocity[5]==0){
-			Vec3f vec = CommonUtil.rotatePoint(new Vec3f(1,0,0),0,180+host.rotationYaw,0);
-			velocity[4]=vec.xCoord;
-			velocity[5]=vec.zCoord;
-		}
-
-		velocity[2]+=speed*velocity[4];
-		velocity[3]+=speed*velocity[5];
-		velocity[4]=0;
-		velocity[5]=0;
+		Vec3f vec = CommonUtil.rotatePoint(new Vec3f(1,0,0),0,180+host.rotationYaw,0);
+		velocity[2]+=speed*vec.xCoord;
+		velocity[3]+=speed*vec.zCoord;
 	}
 
 	public void drag(AbstractTrains host, double drag){
@@ -547,7 +510,7 @@ public class EntityBogie extends EntityMinecart implements IMinecart, IRoutableC
 			zFloor = CommonUtil.floorDouble(this.posZ);
 			//prevent moving without velocity
 			if (Math.abs(velocity[0]) + Math.abs(velocity[1] + Math.abs(velocity[2]) + Math.abs(velocity[3])) < 0.0000001) {
-				//return;
+				return;
 			}
 
 			//reset rotation
